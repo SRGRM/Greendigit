@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the paper below."
+title: "Green-GRM: Generative Reward Machines for hyperparameter optimisation in the GreenDIGIT challenge"
+type: software
+authors:
+  - family-names: Rezaei
+    given-names: Saeid
+    affiliation: "University College Cork"
+    email: saeid.rezaei@ieee.org
+license: MIT
+keywords:
+  - generative reward machine
+  - reward machines
+  - hyperparameter optimization
+  - reinforcement learning
+  - energy forecasting
+  - carbon-aware scheduling
+preferred-citation:
+  type: conference-paper
+  title: "Automated Hyperparameter Optimization for Energy Forecasting using Generative Reward Machines"
+  authors:
+    - family-names: Rezaei
+      given-names: Saeid
+      affiliation: "University College Cork"
+  collection-title: "GreenDIGIT ECML-PKDD 2026 Discovery Challenge"
+  conference:
+    name: "European Conference on Machine Learning and Principles and Practice of Knowledge Discovery in Databases (ECML PKDD 2026)"
+    city: Naples
+    country: IT
+  year: 2026

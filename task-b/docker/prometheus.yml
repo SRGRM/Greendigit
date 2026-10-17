@@ -1,0 +1,10 @@
+# docker/prometheus.yml
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: dirac_sim_api
+    static_configs:
+      - targets: ["forecast-api:8000"]
+    metrics_path: /metrics

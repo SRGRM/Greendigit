@@ -1,0 +1,4 @@
+# PyTorch for the MLP architectures of challenge_code/task_a/model_lab.py
+# on a CUDA 12.2 machine (driver >= 535).
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.3.1+cu121

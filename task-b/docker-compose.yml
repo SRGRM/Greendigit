@@ -1,0 +1,101 @@
+# docker-compose.yml
+# ==================
+# Runs the DiracSim forecast REST API alongside a Prometheus monitoring stack.
+#
+# Usage:
+#   docker-compose up --build
+#
+# Then run simulations against the live server:
+#   python examples/run_simulation.py --api-url http://localhost:8000
+#
+# To plug in your own Task A model:
+#   1. Set MODEL_PATH to your serialised model file.
+#   2. Override the _load_model() and _predict() functions in
+#      dirac_sim/api/server.py.
+#   3. Rebuild: docker-compose build forecast-api
+
+version: "3.9"
+
+services:
+
+  # ------------------------------------------------------------ #
+  # Forecast REST API (participant's Task A model)               #
+  # ------------------------------------------------------------ #
+  forecast-api:
+    build:
+      context: ..
+      dockerfile: task-b/docker/Dockerfile.api
+    image: dirac_sim_forecast_api:latest
+    container_name: dirac_sim_api
+    ports:
+      - "8000:8000"
+    environment:
+      MODEL_PATH: /models/model.pkl          # mount your model here
+      SITES_JSON: /app/data/site_config.json
+      MODEL_VERSION: "0.1.0"
+    volumes:
+      - ../data:/app/data:ro
+      - ./models:/models:ro                  # mount trained model artefacts
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # ------------------------------------------------------------ #
+  # Prometheus — scrapes /metrics from the forecast API          #
+  # ------------------------------------------------------------ #
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: dirac_sim_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - forecast-api
+    restart: unless-stopped
+
+  # ------------------------------------------------------------ #
+  # Grafana — pre-built dashboard for forecast + schedule KPIs   #
+  # ------------------------------------------------------------ #
+  grafana:
+    image: grafana/grafana:10.3.0
+    container_name: dirac_sim_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: dirac_sim
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ------------------------------------------------------------ #
+  # One-shot simulation runner (optional; runs then exits)       #
+  # ------------------------------------------------------------ #
+  simulator:
+    build:
+      context: ..
+      dockerfile: task-b/docker/Dockerfile.api
+    image: dirac_sim_forecast_api:latest
+    container_name: dirac_sim_runner
+    command: >
+      python examples/run_simulation.py
+        --api-url http://forecast-api:8000
+        --jobs /app/data/job_trace.csv
+        --sites /app/data/site_config.json
+        --output-dir /app/results
+        --objective carbon
+    volumes:
+      - ../data:/app/data:ro
+      - ./results:/app/results
+    depends_on:
+      forecast-api:
+        condition: service_healthy
+    profiles:
+      - run   # only starts with: docker-compose --profile run up simulator

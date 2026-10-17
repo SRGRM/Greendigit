@@ -1,0 +1,47 @@
+{
+  "run": {
+    "scheduler": "greedy_carbon",
+    "objective": "carbon",
+    "offline": true,
+    "api_url": null,
+    "jobs": "/home/goncalo/greendigit-ecml-pkdd-2026-challenge/data/job_trace.csv",
+    "sites": "/home/goncalo/greendigit-ecml-pkdd-2026-challenge/data/site_config.json",
+    "forecast_csv": "/home/goncalo/greendigit-ecml-pkdd-2026-challenge/data/forecast_baseline.csv",
+    "start": "2025-11-19T23:00:00+00:00",
+    "end": "2025-11-20T23:00:00+00:00"
+  },
+  "evaluation": {
+    "declared_objective": "carbon",
+    "baseline": {
+      "energy_wh_total": 445300.03835763,
+      "cfp_g_total": 16030.80138087,
+      "makespan_total": 4560.0,
+      "deadlines_met": 304,
+      "n_jobs": 304,
+      "jobs_dispatched": 304
+    },
+    "submission": {
+      "energy_wh_total": 445300.03835763,
+      "cfp_g_total": 16030.80138087,
+      "makespan_total": 4560.0,
+      "deadlines_met": 304,
+      "n_jobs": 304,
+      "jobs_dispatched": 304
+    },
+    "deltas": {
+      "energy_wh_total": 0.0,
+      "cfp_g_total": 0.0,
+      "makespan_total": 0.0,
+      "energy_norm": 0.0,
+      "carbon_norm": 0.0,
+      "makespan_norm": 0.0,
+      "deadline_rate": 0.0
+    },
+    "scores": {
+      "pareto": 0.0,
+      "declaration": 0.0,
+      "deadline_penalty": 0.0,
+      "final": 0.0
+    }
+  }
+}

@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dirac_sim"
+version = "0.1.0"
+description = "Starter kit for ECML PKDD Challenge Task B — Forecast-Driven Sustainable Job Scheduling"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+keywords = ["grid computing", "carbon-aware scheduling", "DIRAC", "SLURM", "forecasting"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering",
+    "Intended Audience :: Science/Research",
+]
+
+dependencies = [
+    "pydantic>=2.0",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+server = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "httpx>=0.27",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+    "httpx>=0.27",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+]
+dirac = [
+    # Install DIRAC separately via DIRACOS2 or conda-forge
+    # mamba install -c conda-forge dirac-grid
+]
+slurm = [
+    "pyslurm>=23.11",   # optional; subprocess fallback always available
+]
+
+[project.scripts]
+dirac-sim = "dirac_sim.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dirac_sim*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["dirac_sim"]
+omit = ["tests/*", "examples/*", "data/*"]

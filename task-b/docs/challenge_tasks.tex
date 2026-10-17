@@ -1,0 +1,266 @@
+% ============================================================
+% ECML PKDD Challenge — Task definitions (Tasks A, B, C, D)
+% Drop-in replacement for your challenge description section.
+% Requires: \usepackage{amsmath,booktabs,hyperref,listings,xcolor}
+% ============================================================
+
+% ----------------------------------------------------------------
+\subsubsection*{Task A (main): Forecasting (train/test)}
+
+\textbf{Objective:} Given historical observations up to time $t$, predict
+targets at $t+h$ for fixed horizons.
+
+\noindent\textit{Forecast horizons}
+\begin{itemize}
+  \item \textbf{1h ahead}: $h = 60$ minutes (4 steps of 15~minutes).
+  \item \textbf{24h ahead}: $h = 1440$ minutes (96 steps of 15~minutes).
+\end{itemize}
+
+\noindent\textit{Train/test split:} Temporal 80/20 by timestamp with cut-off:
+\[
+  \texttt{train\_test\_cut\_timestamp} = \texttt{2026-02-17T14:00:00}.
+\]
+
+\noindent\textit{Targets.} The primary forecasting targets are
+\texttt{energy\_wh} and \texttt{cfp\_g} (and optionally \texttt{jobs} if
+included in the release).
+
+\noindent\textit{Submission schema.}
+\begin{center}
+  \texttt{series\_id,\ forecast\_timestamp\_utc,\ horizon\_steps\_15m,\
+          energy\_wh\_pred,\ cfp\_g\_pred}.
+\end{center}
+
+% ----------------------------------------------------------------
+\subsubsection*{Task B (use case): Forecast-Driven Sustainable Job Scheduling}
+
+\textbf{Objective.}
+Use the forecasts produced in Task~A to drive a \emph{sustainable job
+scheduler} operating over a DIRAC-inspired Workload Management System
+(WMS)~\cite{Tsaregorodtsev2010}.
+Given a queue of pending grid jobs and a rolling horizon of predicted
+\texttt{energy\_wh} and \texttt{cfp\_g} signals—fetched from a participant's
+forecast model via a REST~API—participants must decide \emph{when} and
+\emph{where} each job is dispatched so as to optimise a declared sustainability
+objective while respecting soft constraints on the remaining ones.
+
+\medskip
+\noindent\textit{Motivation.}
+While Task~A tests statistical accuracy in isolation, Task~B measures the
+\emph{downstream operational utility} of accurate predictions.
+Distributed computing infrastructures such as the Worldwide LHC Computing
+Grid (WLCG)~\cite{Bird2011} collectively consume gigawatt-hours annually.
+Recent work on carbon-aware scheduling~\cite{Radovanovic2022,Wiesner2024}
+shows that shifting batch workloads to greener time windows can reduce
+operational carbon by 20--40\% with negligible performance loss.
+Task~B operationalises this insight in a reproducible, evaluable setting.
+
+\medskip
+\noindent\textit{Scenario and job model.}
+The challenge provides a synthetic but realistic job trace comprising $N$
+pending jobs $\mathcal{J} = \{j_1, \ldots, j_N\}$.
+Each job $j_i$ is characterised by:
+\begin{itemize}
+  \item \textbf{Arrival time} $a_i$ (UTC): earliest moment the job may be
+        dispatched.
+  \item \textbf{Deadline} $d_i$ (UTC): latest moment by which execution must
+        \emph{start} (soft constraint; violations incur a score penalty).
+  \item \textbf{CPU-time estimate} $\hat{c}_i$ (minutes): expected duration on
+        a reference node.
+  \item \textbf{Memory requirement} $m_i$ (GB).
+  \item \textbf{Site whitelist} $S_i \subseteq \mathcal{S}$: subset of
+        compatible computing sites (empty $= $ any site).
+  \item \textbf{Priority class}
+        $p_i \in \{\textsc{express},\,\textsc{normal},\,\textsc{best\text{-}effort}\}$.
+\end{itemize}
+Each computing site $s \in \mathcal{S}$ has a time-varying
+\emph{energy intensity} $e_s(t)$~(Wh per 15-min bucket) and
+\emph{carbon intensity} $\kappa_s(t)$~(gCO$_2$eq per 15-min bucket),
+both aligned to the 15-minute resolution of Task~A.
+Site parameters (Power Usage Effectiveness, capacity, dispatch latency) are
+provided in \texttt{data/site\_config.json}.
+
+\medskip
+\noindent\textit{REST forecast integration.}
+A key design principle of Task~B is \emph{tight coupling} between the
+forecasting model and the scheduler.
+At each 15-minute simulation tick the WMS calls the participant's model
+server via a standardised HTTP endpoint:
+
+\begin{center}
+\small
+\texttt{POST /forecast}\\[2pt]
+\texttt{Body: \{series\_ids, reference\_timestamp\_utc, horizons: ["1h","24h"]\}}\\[2pt]
+\texttt{Reply: \{forecasts: [\{series\_id, forecast\_timestamp\_utc,}\\
+\texttt{\hspace*{6em}horizon\_steps\_15m, energy\_wh\_pred, cfp\_g\_pred\}]\}}
+\end{center}
+
+\noindent
+This schema is \emph{identical} to the Task~A submission format, so a model
+that already answers Task~A can serve Task~B without modification.
+The starter kit ships with a FastAPI reference server
+(\texttt{dirac\_sim/api/server.py}) in which participants replace a single
+\texttt{\_predict()} stub with their own model inference.
+An offline CSV fallback (no HTTP required) is provided for local development.
+
+\medskip
+\noindent\textit{Simulation environment.}
+A lightweight Python simulator modelled on the DIRAC WMS
+pull-scheduling paradigm~\cite{Tsaregorodtsev2010,Casajus2010} is provided
+as the challenge starter kit (\texttt{dirac\_sim/}).
+The simulator exposes a \texttt{Scheduler} interface with a single method:
+\[
+  \texttt{schedule(queue,\ registry,\ forecast,\ now)}
+  \;\longrightarrow\;
+  \texttt{DispatchPlan}
+\]
+where \texttt{forecast} is a \texttt{ForecastBundle} populated by calling the
+participant's REST~API, and \texttt{DispatchPlan} maps each ready job to a
+\texttt{(site\_id,\,dispatch\_at)} pair.
+Setting \texttt{dispatch\_at}~$> t$ holds the job until a greener window
+arrives (\emph{temporal shifting}), directly exploiting the 24h-ahead forecast.
+
+The simulator runs in three modes:
+\begin{enumerate}
+  \item \textbf{Offline simulation} — all evaluation uses this mode;
+        scores are fully reproducible.
+  \item \textbf{Live DIRAC} — the \texttt{DiracBackend} shim translates
+        dispatch decisions into DIRAC Job Description Language (JDL) and
+        submits them to a real WLCG instance via the DIRAC Python~API.
+  \item \textbf{Live SLURM} — the \texttt{SlurmBackend} shim calls
+        \texttt{sbatch} with a \texttt{--begin} timestamp derived from the
+        forecast green-window recommendation, enabling transparent carbon-aware
+        scheduling on any HPC cluster without modifications to the batch
+        system.
+\end{enumerate}
+
+\medskip
+\noindent\textit{Optimisation objectives.}
+Task~B is deliberately \emph{multi-objective}.
+At submission time participants declare a primary objective
+$\omega \in \{\textsc{energy},\,\textsc{carbon},\,\textsc{makespan}\}$
+and scalar relaxation budgets $\delta_{\omega'} \in [0, 0.20]$ for the
+remaining two objectives.
+The optimisation problem is:
+\[
+  \min_{\mathbf{x}}\;\Phi_\omega(\mathbf{x})
+  \quad\text{subject to}\quad
+  \Phi_{\omega'} \;\le\; (1+\delta_{\omega'})\,\Phi_{\omega'}^{\textsc{fcfs}}
+  \;\;\forall\,\omega' \neq \omega,
+\]
+where $\Phi_\omega$ is total energy / carbon / weighted makespan,
+$\Phi_{\omega'}^{\textsc{fcfs}}$ is the FCFS baseline value, and
+$\delta_{\omega'}$ is the user-declared slack budget.
+This models real grid operations where a primary environmental goal is pursued
+while guaranteeing bounded degradation on secondary metrics.
+
+\medskip
+\noindent\textit{Forecast-to-dispatch value gap.}
+The central scientific contribution of Task~B is quantifying how much
+forecasting quality matters for scheduling performance.
+Two runs are compared:
+\begin{itemize}
+  \item \textbf{Oracle scheduler}: same algorithm, but fed ground-truth
+        signals instead of model predictions (upper bound).
+  \item \textbf{Submission scheduler}: fed actual Task~A model outputs.
+\end{itemize}
+The \emph{value gap} is:
+\[
+  \textsc{gap} = \text{score}_{\textsc{oracle}} - \text{score}_{\textsc{submission}},
+  \qquad
+  \textsc{capture ratio} =
+    \frac{\text{score}_{\textsc{submission}}}{\text{score}_{\textsc{oracle}}}.
+\]
+Participants who submit to both tasks receive a \emph{joint score} that rewards
+forecast accuracy insofar as it translates into scheduling gains.
+
+\medskip
+\noindent\textit{Evaluation metrics.}
+Schedulers are scored with a normalised Pareto efficiency score:
+\[
+  \text{Score}
+  = 1 - \tfrac{1}{3}\!\left(
+      \frac{\Delta E}{E_{\textsc{ref}}} +
+      \frac{\Delta C}{C_{\textsc{ref}}} +
+      \frac{\Delta M}{M_{\textsc{ref}}}
+    \right)
+  \;+\; 0.15 \cdot \max(0, \Delta_\omega)
+  \;-\; 0.005 \cdot r_{\text{missed}},
+\]
+where $\Delta X = (X_{\textsc{ref}} - X_{\text{sub}}) / X_{\textsc{ref}}$
+(positive~$=$ improvement), $\Delta_\omega$ is the normalised improvement on
+the declared objective, and $r_{\text{missed}}$ is the percentage of jobs
+that miss their deadline.
+
+\medskip
+\noindent\textit{Submission schema.}
+\begin{center}
+  \texttt{job\_id,\ dispatch\_timestamp\_utc,\ site\_id,\
+          declared\_objective,\ delta\_energy\_budget,\ delta\_carbon\_budget}.
+\end{center}
+
+\medskip
+\noindent\textit{Starter kit.}
+The challenge repository provides:
+\begin{enumerate}
+  \item \texttt{dirac\_sim/} — the full Python simulator package
+        (WMS engine, REST client, evaluator, baselines);
+  \item \texttt{dirac\_sim/backends/} — production integration shims for
+        DIRAC~\cite{Tsaregorodtsev2010} and SLURM, enabling
+        direct deployment on real grid/HPC infrastructure;
+  \item \texttt{dirac\_sim/api/server.py} — a FastAPI reference server
+        with a single stub function to replace with the participant's
+        Task~A model;
+  \item \texttt{dirac\_sim/baselines/fcfs.py} — the FCFS reference baseline;
+  \item \texttt{dirac\_sim/baselines/greedy\_carbon.py} — a greedy
+        look-ahead scheduler consuming the 1h/24h forecast;
+  \item \texttt{examples/custom\_scheduler\_template.py} — a documented
+        template for participant schedulers;
+  \item \texttt{docker-compose.yml} — one-command deployment of the API
+        server alongside Prometheus and Grafana monitoring;
+  \item \texttt{data/} — raw metric summaries plus prepared job-trace,
+        site configuration, and offline forecast inputs.
+\end{enumerate}
+The simulation design draws on the DIRAC pilot-agent and task-queue
+architecture~\cite{Tsaregorodtsev2010}, simplified for reproducible
+offline benchmarking as recommended in recent sustainable computing
+literature~\cite{Wiesner2024,SustainCluster2024}.
+
+% ----------------------------------------------------------------
+\subsubsection*{Additional Subtasks}
+
+To increase difficulty beyond standard point forecasting, we include two
+optional subtasks reflecting real-world monitoring artefacts:
+
+\begin{itemize}
+  \item \textbf{Subtask C (missing/invalid signal detection):}
+        For each 15-minute bucket, predict whether sustainability signals are
+        \textit{valid} (reliable \texttt{energy\_wh} and \texttt{cfp\_g})
+        versus \textit{missing/invalid} (e.g., zero-filled or unavailable).
+
+  \item \textbf{Subtask D (peak detection):}
+        For each 15-minute bucket, predict whether the bucket corresponds to a
+        \textit{peak} event (extreme values), e.g., \texttt{energy\_wh} or
+        \texttt{cfp\_g} above a published threshold (such as the 95th
+        percentile computed on the training period).
+\end{itemize}
+
+% ----------------------------------------------------------------
+\subsubsection*{Joint Scoring}
+
+Participants may submit to any combination of tasks.
+The joint leaderboard ranks teams by:
+\[
+  S_{\text{joint}}
+  = w_A \cdot S_A
+  + w_B \cdot S_B
+  + w_C \cdot S_C
+  + w_D \cdot S_D,
+  \qquad
+  w_A = 0.40,\; w_B = 0.35,\; w_C = 0.15,\; w_D = 0.10,
+\]
+reflecting the primary importance of forecasting (Task~A) and the
+real-world value of actionable scheduling (Task~B).
+A \emph{coupling bonus} of $+0.05$ is added to $S_{\text{joint}}$ for
+teams that achieve $\textsc{capture ratio} \ge 0.80$ in Task~B, rewarding
+end-to-end integration of forecasting and scheduling.

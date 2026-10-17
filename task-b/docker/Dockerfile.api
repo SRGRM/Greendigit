@@ -1,0 +1,32 @@
+# docker/Dockerfile.api
+# =====================
+# Builds the DiracSim Forecast REST API container.
+#
+# Build: docker build -f task-b/docker/Dockerfile.api -t dirac_sim_api .
+# Run:   docker run -p 8000:8000 -e MODEL_PATH=/models/model.pkl dirac_sim_api
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System deps (curl for healthcheck)
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python deps
+COPY task-b/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Application code
+COPY task-b/dirac_sim/ ./dirac_sim/
+COPY data/site_config.json ./data/site_config.json
+COPY data/forecast_baseline.csv ./data/forecast_baseline.csv
+COPY task-b/examples/ ./examples/
+
+# Expose REST port
+EXPOSE 8000
+
+# Default: run the forecast API server
+CMD ["uvicorn", "dirac_sim.api.server:app", \
+     "--host", "0.0.0.0", "--port", "8000", \
+     "--workers", "2", "--log-level", "info"]

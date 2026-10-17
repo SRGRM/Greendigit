@@ -1,0 +1,3 @@
+eps: 1.0e-9
+peak_quantile: 0.95
+horizons_steps_15m: [4, 96]

@@ -1,0 +1,6 @@
+horizons_steps_15m: [4, 96]
+fallback_order:
+  - seasonal_day
+  - previous_hour
+  - latest_observed
+  - series_mean

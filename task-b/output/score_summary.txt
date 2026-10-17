@@ -1,0 +1,10 @@
+=== Task B Evaluation ===
+Declared objective : carbon
+ΔEnergy (norm)     : +0.8236
+ΔCarbon (norm)     : +0.8236
+ΔMakespan (norm)   : +0.0000
+Pareto score       : 0.5491
+Declaration score  : 0.1235
+Deadline penalty   : 0.0000
+──────────────────────────────
+Final score        : 0.6726

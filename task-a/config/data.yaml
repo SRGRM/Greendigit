@@ -1,0 +1,5 @@
+raw_input: ../data/raw_metrics/summary_sites_15m.csv
+prepared_input: ../data/task_a_series.csv
+split_cutoff_utc: "2026-02-18T14:00:00+00:00"
+timestamp_column: bucket_15m
+series_column: series_id
