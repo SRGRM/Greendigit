@@ -1,5 +1,10 @@
 # Green-GRM: Generative Reward Machines for energy forecasting (GreenDIGIT 2026)
 
+The results for ECML PKDD 2026 GreenDIGIT have been announced.
+
+https://www.linkedin.com/feed/update/urn:li:activity:7503707775093465088/
+
+
 Code and data of the paper
 
 > **Automated Hyperparameter Optimization for Energy Forecasting using
